@@ -1,12 +1,16 @@
 import { CartContext, CartItem } from '@/context/CartContext';
 import { ThemeContext } from '@/context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useContext } from 'react';
-import { Alert, FlatList, Image, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { router } from 'expo-router';
+import { useContext, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Image, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+const API_URL = 'http://192.xxxxxxxxx';
 
 export default function CartScreen() {
     const { cart, removeFromCart, totalPrice, clearCart } = useContext(CartContext);
     const { isDarkMode } = useContext(ThemeContext);
+    const [isProcessing, setIsProcessing] = useState(false);
 
     const handleCheckout = async () => {
         if (cart.length === 0) {
@@ -21,15 +25,41 @@ export default function CartScreen() {
                     'Silakan Login atau Register untuk memproses pesanan.',
                     [
                         { text: 'Nanti Aja', style: 'cancel' },
-                        { text: 'Login Sekarang', onPress: () => console.log('Navigasi ke Login') }
+                        { text: 'Login Sekarang', onPress: () => router.push('/login') }
                     ]
                 );
                 return;
             }
-            Alert.alert('Sukses 🎉', 'Pesanan masuk antrean Barista!');
-            clearCart();
+            setIsProcessing(true);
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+            const response = await fetch(`${API_URL}/api/orders`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ cart, total: totalPrice }),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            const data = await response.json();
+
+            if (response.ok) {
+                Alert.alert('Sukses 🎉', data.message);
+                clearCart();
+            } else {
+                Alert.alert('Sesi Habis', 'Token kedaluwarsa, silakan login ulang.');
+                await AsyncStorage.removeItem('user_token');
+            }
         } catch (error) {
             console.error(error);
+            Alert.alert('Offline / RTO', 'Sistem gagal menghubungi server (Timeout).');
+        } finally {
+            setIsProcessing(false);
         }
     };
 
@@ -38,8 +68,8 @@ export default function CartScreen() {
             <Image source={{ uri: item.imageUrl }} style={styles.thumbnail} />
             <View style={styles.info}>
                 <Text style={[styles.name, isDarkMode && styles.textDark]} numberOfLines={1}>{item.name}</Text>
-                <Text style={styles.price}>
-                    Rp {item.price.toLocaleString('id-ID')} <Text style={styles.qtyText}>x {item.quantity}</Text>
+                <Text style={[styles.price, isDarkMode && styles.priceDark]}>
+                    Rp {item.price.toLocaleString('id-ID')} <Text style={[styles.qtyText, isDarkMode && styles.qtyTextDark]}>x {item.quantity}</Text>
                 </Text>
             </View>
             <TouchableOpacity
@@ -60,7 +90,7 @@ export default function CartScreen() {
 
             {cart.length === 0 ? (
                 <View style={styles.emptyContainer}>
-                    <Text style={styles.emptyText}>Belum ada kopi yang dipilih.</Text>
+                    <Text style={[styles.emptyText, isDarkMode && styles.textDark]}>Belum ada kopi yang dipilih.</Text>
                 </View>
             ) : (
                 <FlatList
@@ -72,7 +102,7 @@ export default function CartScreen() {
                 />
             )}
 
-            <View style={[styles.footer, isDarkMode && styles.headerDark]}>
+            <View style={[styles.footer, isDarkMode && styles.footerDark]}>
                 <View style={styles.totalContainer}>
                     <Text style={[styles.totalText, isDarkMode && styles.textDark]}>Total:</Text>
                     <Text style={styles.totalPrice}>Rp {totalPrice.toLocaleString('id-ID')}</Text>
@@ -81,8 +111,13 @@ export default function CartScreen() {
                     style={styles.checkoutButton}
                     activeOpacity={0.8}
                     onPress={handleCheckout}
+                    disabled={isProcessing}
                 >
-                    <Text style={styles.checkoutButtonText}>Checkout Sekarang</Text>
+                    {isProcessing ? (
+                        <ActivityIndicator color="#fff" />
+                    ) : (
+                        <Text style={styles.checkoutButtonText}>Checkout Sekarang</Text>
+                    )}
                 </TouchableOpacity>
             </View>
         </SafeAreaView>
@@ -115,7 +150,9 @@ const styles = StyleSheet.create({
     info: { flex: 1, justifyContent: 'center' },
     name: { fontSize: 16, fontWeight: '700', color: '#333' },
     price: { fontSize: 14, color: '#007BFF', marginTop: 4, fontWeight: 'bold' },
+    priceDark: { color: '#4da6ff' },
     qtyText: { color: '#666', fontWeight: 'normal' },
+    qtyTextDark: { color: '#aaa' },
     removeButton: {
         backgroundColor: '#FF3B30',
         width: 36,
@@ -128,6 +165,7 @@ const styles = StyleSheet.create({
     emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     emptyText: { fontSize: 16, color: '#888' },
     footer: { padding: 20, backgroundColor: '#fff', borderTopWidth: 1, borderColor: '#eee' },
+    footerDark: { backgroundColor: '#1E1E1E', borderTopColor: '#333' },
     totalContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16, alignItems: 'center' },
     totalText: { fontSize: 18, fontWeight: '600', color: '#333' },
     totalPrice: { fontSize: 22, fontWeight: 'bold', color: '#28A745' },

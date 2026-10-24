@@ -1,16 +1,25 @@
-import { useColorScheme } from '@/components/useColorScheme';
-import Colors from '@/constants/Colors';
+import { ThemeContext } from '@/context/ThemeContext';
 import { Tabs } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
+import { useContext } from 'react';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const { isDarkMode } = useContext(ThemeContext);
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: '#007BFF',
+        tabBarInactiveTintColor: isDarkMode ? '#888' : '#666',
         headerShown: false,
+        tabBarStyle: {
+          backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF',
+          borderTopColor: isDarkMode ? '#333' : '#eee',
+          borderTopWidth: 1,
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
+        },
       }}>
 
       <Tabs.Screen
@@ -21,7 +30,7 @@ export default function TabLayout() {
             <SymbolView
               name={{ ios: 'house.fill', android: 'home', web: 'home' }}
               tintColor={color}
-              size={28}
+              size={24}
             />
           ),
         }}
@@ -35,7 +44,7 @@ export default function TabLayout() {
             <SymbolView
               name={{ ios: 'cart.fill', android: 'shopping_cart', web: 'shopping_cart' }}
               tintColor={color}
-              size={28}
+              size={24}
             />
           ),
         }}
